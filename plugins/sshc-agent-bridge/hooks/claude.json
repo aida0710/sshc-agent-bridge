@@ -1,0 +1,79 @@
+{
+  "description": "Report Claude Code lifecycle state to the current sshc terminal pane.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=claude python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=claude python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=claude python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt",
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=claude python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "Elicitation": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=claude python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=claude python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=claude python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=claude python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ]
+  }
+}

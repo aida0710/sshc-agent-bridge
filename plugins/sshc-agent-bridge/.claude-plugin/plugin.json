@@ -1,0 +1,14 @@
+{
+  "name": "sshc-agent-bridge",
+  "version": "0.1.0",
+  "description": "Report coding-agent lifecycle state to an sshc terminal pane.",
+  "author": {
+    "name": "Masaki Aida",
+    "email": "51500566+aida0710@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/aida0710/sshc-agent-bridge#readme",
+  "repository": "https://github.com/aida0710/sshc-agent-bridge",
+  "license": "MIT",
+  "keywords": ["sshc", "terminal", "hooks", "claude-code"],
+  "hooks": "./hooks/claude.json"
+}

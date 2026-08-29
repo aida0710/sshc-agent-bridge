@@ -1,0 +1,22 @@
+{
+  "name": "sshc-agent-bridge-opencode",
+  "version": "0.1.0",
+  "description": "Report OpenCode lifecycle state to an sshc terminal pane.",
+  "type": "module",
+  "exports": "./index.js",
+  "files": ["index.js", "README.md"],
+  "keywords": ["opencode", "sshc", "terminal", "plugin"],
+  "author": "Masaki Aida <51500566+aida0710@users.noreply.github.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aida0710/sshc-agent-bridge.git",
+    "directory": "opencode"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

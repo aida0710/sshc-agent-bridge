@@ -1,0 +1,25 @@
+{
+  "name": "sshc-agent-bridge",
+  "version": "0.1.0",
+  "description": "Report coding-agent lifecycle state to an sshc terminal pane.",
+  "author": {
+    "name": "Masaki Aida",
+    "email": "51500566+aida0710@users.noreply.github.com",
+    "url": "https://github.com/aida0710"
+  },
+  "homepage": "https://github.com/aida0710/sshc-agent-bridge#readme",
+  "repository": "https://github.com/aida0710/sshc-agent-bridge",
+  "license": "MIT",
+  "keywords": ["sshc", "terminal", "hooks", "codex", "claude-code"],
+  "interface": {
+    "displayName": "sshc Agent Bridge",
+    "shortDescription": "Show agent state in sshc terminal panes.",
+    "longDescription": "Reports session identity and lifecycle state from Codex to the sshc terminal that is already running the agent. It does not read transcripts, send network requests, or alter agent decisions.",
+    "developerName": "Masaki Aida",
+    "category": "Productivity",
+    "capabilities": ["Lifecycle hooks"],
+    "websiteURL": "https://github.com/aida0710/sshc-agent-bridge",
+    "brandColor": "#3B82F6",
+    "defaultPrompt": ["Explain what the sshc Agent Bridge reports."]
+  }
+}

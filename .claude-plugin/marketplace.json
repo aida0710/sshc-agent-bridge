@@ -1,0 +1,28 @@
+{
+  "name": "sshc",
+  "owner": {
+    "name": "Masaki Aida",
+    "email": "51500566+aida0710@users.noreply.github.com"
+  },
+  "metadata": {
+    "description": "Official sshc integrations"
+  },
+  "plugins": [
+    {
+      "name": "sshc-agent-bridge",
+      "source": "./plugins/sshc-agent-bridge",
+      "description": "Report Claude Code lifecycle state to an sshc terminal pane.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Masaki Aida",
+        "email": "51500566+aida0710@users.noreply.github.com"
+      },
+      "homepage": "https://github.com/aida0710/sshc-agent-bridge#readme",
+      "repository": "https://github.com/aida0710/sshc-agent-bridge",
+      "license": "MIT",
+      "keywords": ["sshc", "terminal", "hooks"],
+      "category": "Productivity",
+      "strict": true
+    }
+  ]
+}

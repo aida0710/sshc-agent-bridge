@@ -1,0 +1,51 @@
+{
+  "description": "Report Codex lifecycle state to the current sshc terminal pane.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=codex python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=codex python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=codex python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=codex python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "SSHC_AGENT_KIND=codex python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/report_hook.py\"",
+          "timeout": 2
+        }]
+      }
+    ]
+  }
+}
