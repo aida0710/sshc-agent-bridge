@@ -4,8 +4,7 @@ Claude Code、Codex、OpenCodeのsession状態を、そのagentを実行して�
 [sshc](https://github.com/aida0710/sshc) Terminal paneへ報告する小さなplugin集です。
 
 > [!IMPORTANT]
-> 現在はexperimentalです。sshc側はAgent Bridge protocolを含む開発版が必要です。
-> 公開済みのsshc v0.18.0では、受信した状態はまだUIに表示されません。
+> 現在はexperimentalです。Agent Bridge protocolを含むsshc v0.19.0以上が必要です。
 
 ## 何が変わるか
 
