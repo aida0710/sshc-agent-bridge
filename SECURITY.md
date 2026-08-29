@@ -13,6 +13,7 @@ BridgeがOSC payloadへcopyするfieldはallowlistで固定しています。
 - `session_id`
 - `cwd`
 - `model`
+- Codexのローカルsession indexにある該当sessionの`thread_name`
 - OpenCodeのroot session `title`
 - 正規化済みlifecycle state
 
@@ -25,8 +26,11 @@ BridgeがOSC payloadへcopyするfieldはallowlistで固定しています。
 - credentialsとenvironment全体
 
 Reporterはnetwork APIを呼ばず、永続fileも作りません。唯一のwrite先は`/dev/tty`です。
-hook inputは最大1 MiB、OSC JSON payloadは最大4 KiBに制限します。例外、TTY不在、未知の
-eventはagentの動作を止めずに無視します。
+Codexでは`CODEX_HOME/session_index.jsonl`（既定は`~/.codex/session_index.jsonl`）の末尾
+最大1 MiBを読み、hookの`session_id`と一致する最新行の`thread_name`だけを利用します。
+fileがない、形式が変わった、名前がまだ生成されていない場合は名前を省略します。hook
+inputは最大1 MiB、OSC JSON payloadは最大4 KiBに制限します。例外、TTY不在、未知のeventは
+agentの動作を止めずに無視します。
 
 ## Supported environment
 

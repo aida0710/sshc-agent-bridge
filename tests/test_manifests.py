@@ -27,6 +27,13 @@ class ManifestTest(unittest.TestCase):
                         self.assertNotIn("curl", command)
                         self.assertNotIn("wget", command)
 
+    def test_shared_plugin_manifests_use_the_same_version(self):
+        plugin = ROOT / "plugins/sshc-agent-bridge"
+        codex = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
+        claude = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
+        self.assertEqual(codex["version"], "0.1.1")
+        self.assertEqual(claude["version"], codex["version"])
+
 
 if __name__ == "__main__":
     unittest.main()

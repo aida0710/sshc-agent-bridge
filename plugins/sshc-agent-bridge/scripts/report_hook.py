@@ -12,6 +12,7 @@ from typing import Any, Mapping
 
 MAX_INPUT_BYTES = 1 << 20
 MAX_ENCODED_PAYLOAD_BYTES = 4096
+MAX_SESSION_INDEX_TAIL_BYTES = 1 << 20
 OSC_PREFIX = b"\x1b]6973;"
 OSC_SUFFIX = b"\x1b\\"
 
@@ -42,6 +43,47 @@ def _agent_from_environment(environment: Mapping[str, str]) -> str:
     return "codex" if environment.get("PLUGIN_ROOT") else "claude"
 
 
+def _codex_home(environment: Mapping[str, str]) -> str:
+    configured = environment.get("CODEX_HOME")
+    if configured:
+        return configured
+    home = environment.get("HOME")
+    if home:
+        return os.path.join(home, ".codex")
+    return os.path.expanduser("~/.codex")
+
+
+def _codex_session_name(session: str, environment: Mapping[str, str]) -> str:
+    index_path = os.path.join(_codex_home(environment), "session_index.jsonl")
+    try:
+        with open(index_path, "rb") as index:
+            end = index.seek(0, os.SEEK_END)
+            start = max(0, end - MAX_SESSION_INDEX_TAIL_BYTES)
+            starts_mid_line = False
+            if start > 0:
+                index.seek(start - 1)
+                starts_mid_line = index.read(1) != b"\n"
+            index.seek(start)
+            data = index.read(end - start)
+    except (OSError, ValueError):
+        return ""
+
+    if starts_mid_line:
+        _, separator, data = data.partition(b"\n")
+        if not separator:
+            return ""
+
+    for line in reversed(data.splitlines()):
+        try:
+            record = json.loads(line)
+        except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(record, dict) or record.get("id") != session:
+            continue
+        return _text(record.get("thread_name"), 160)
+    return ""
+
+
 def build_event(
     hook_input: Mapping[str, Any],
     environment: Mapping[str, str],
@@ -53,9 +95,10 @@ def build_event(
     if state is None or not session or sequence <= 0:
         return None
 
+    agent = _agent_from_environment(environment)
     event: dict[str, Any] = {
         "v": 1,
-        "agent": _agent_from_environment(environment),
+        "agent": agent,
         "event": state,
         "session": session,
         "seq": sequence,
@@ -66,6 +109,10 @@ def build_event(
         event["cwd"] = cwd
     if model:
         event["model"] = model
+    if agent == "codex":
+        name = _codex_session_name(session, environment)
+        if name:
+            event["name"] = name
     return event
 
 

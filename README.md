@@ -15,8 +15,10 @@ sshcのTerminalでagentを実行すると、pane headerに次の状態を表示�
 - `ready`: 応答が完了し、次の入力を待機中
 - `ended`: native sessionを終了。sshc側では再開候補として保持
 
-OpenCodeではsession titleも報告します。Claude CodeとCodexの公式hookには安定した
-session title fieldがないため、現時点ではsshcのpane titleまたは接続aliasを使います。
+OpenCodeでは公式eventのsession titleを報告します。Codexでは公式hookの`session_id`と
+ローカルの`~/.codex/session_index.jsonl`を照合し、最新の`thread_name`があれば報告します。
+SessionStart時点で未生成の場合は省略され、次のStopやUserPromptSubmitで反映されます。
+Claude Codeは安定したsession title fieldがないため、sshcのpane titleまたは接続aliasを使います。
 
 ## インストール
 
@@ -65,12 +67,13 @@ npm package `sshc-agent-bridge-opencode`の公開後は、このlocal pathをpac
 - lifecycle状態
 - working directory
 - model ID（公式hookが提供する場合）
-- session title（OpenCodeが提供する場合）
+- session title（OpenCodeの公式event、またはCodexのローカルsession indexが提供する場合）
 
-prompt、assistant response、tool input/output、transcript本文は送信しません。hook inputの
-該当fieldは無視し、network request、設定fileの書き換え、agentの許可判断の変更も
-行いません。出力先は現在の`/dev/tty`だけです。sshc以外のterminalでは未知のOSCが
-無視され、TTYがない環境では何もせず成功終了します。
+prompt、assistant response、tool input/output、transcript本文は送信しません。Codex連携は
+session名の解決に`session_index.jsonl`の末尾最大1 MiBだけを読み、該当IDの
+`thread_name`以外をOSCへ含めません。network request、設定fileの書き換え、agentの
+許可判断の変更も行いません。出力先は現在の`/dev/tty`だけです。sshc以外のterminalでは
+未知のOSCが無視され、TTYがない環境では何もせず成功終了します。
 
 詳細は[SECURITY.md](SECURITY.md)を参照してください。
 
