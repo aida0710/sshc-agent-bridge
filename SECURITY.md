@@ -14,13 +14,15 @@ BridgeがOSC payloadへcopyするfieldはallowlistで固定しています。
 - `cwd`
 - `model`
 - Codexのローカルsession indexにある該当sessionの`thread_name`
+- Claude Codeのtranscriptにある該当sessionの`aiTitle`
 - OpenCodeのroot session `title`
 - 正規化済みlifecycle state
 
 次のfieldはcopy、保存、送信しません。
 
 - promptとassistant response
-- transcript内容とtranscript path
+- transcript path
+- transcript本文（session名として選ばれた`aiTitle`を除く）
 - tool input/output
 - permission理由
 - credentialsとenvironment全体
@@ -28,6 +30,9 @@ BridgeがOSC payloadへcopyするfieldはallowlistで固定しています。
 Reporterはnetwork APIを呼ばず、永続fileも作りません。唯一のwrite先は`/dev/tty`です。
 Codexでは`CODEX_HOME/session_index.jsonl`（既定は`~/.codex/session_index.jsonl`）の末尾
 最大1 MiBを読み、hookの`session_id`と一致する最新行の`thread_name`だけを利用します。
+Claude Codeではhookが渡す`transcript_path`のfileの末尾最大1 MiBを読み、hookの`session_id`と
+一致する最新の`ai-title` recordの`aiTitle`だけを利用します。transcriptのそれ以外のrecordは
+読み捨て、`transcript_path`自体もOSCへ含めません。
 fileがない、形式が変わった、名前がまだ生成されていない場合は名前を省略します。hook
 inputは最大1 MiB、OSC JSON payloadは最大4 KiBに制限します。例外、TTY不在、未知のeventは
 agentの動作を止めずに無視します。

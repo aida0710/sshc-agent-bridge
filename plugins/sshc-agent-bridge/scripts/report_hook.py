@@ -13,6 +13,7 @@ from typing import Any, Mapping
 MAX_INPUT_BYTES = 1 << 20
 MAX_ENCODED_PAYLOAD_BYTES = 4096
 MAX_SESSION_INDEX_TAIL_BYTES = 1 << 20
+MAX_TRANSCRIPT_TAIL_BYTES = 1 << 20
 OSC_PREFIX = b"\x1b]6973;"
 OSC_SUFFIX = b"\x1b\\"
 
@@ -53,34 +54,67 @@ def _codex_home(environment: Mapping[str, str]) -> str:
     return os.path.expanduser("~/.codex")
 
 
-def _codex_session_name(session: str, environment: Mapping[str, str]) -> str:
-    index_path = os.path.join(_codex_home(environment), "session_index.jsonl")
+def _tail_lines(path: str, limit: int) -> list[bytes]:
+    """Return whole lines from at most the last limit bytes, oldest first.
+
+    A bounded tail keeps the reporter's cost independent of how long the agent
+    has been running, and never loads a whole transcript into memory.
+    """
     try:
-        with open(index_path, "rb") as index:
-            end = index.seek(0, os.SEEK_END)
-            start = max(0, end - MAX_SESSION_INDEX_TAIL_BYTES)
+        with open(path, "rb") as source:
+            end = source.seek(0, os.SEEK_END)
+            start = max(0, end - limit)
             starts_mid_line = False
             if start > 0:
-                index.seek(start - 1)
-                starts_mid_line = index.read(1) != b"\n"
-            index.seek(start)
-            data = index.read(end - start)
+                source.seek(start - 1)
+                starts_mid_line = source.read(1) != b"\n"
+            source.seek(start)
+            data = source.read(end - start)
     except (OSError, ValueError):
-        return ""
+        return []
 
     if starts_mid_line:
         _, separator, data = data.partition(b"\n")
         if not separator:
-            return ""
+            return []
+    return data.splitlines()
 
-    for line in reversed(data.splitlines()):
-        try:
-            record = json.loads(line)
-        except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
-            continue
-        if not isinstance(record, dict) or record.get("id") != session:
+
+def _json_object(line: bytes) -> dict[str, Any] | None:
+    try:
+        record = json.loads(line)
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+        return None
+    return record if isinstance(record, dict) else None
+
+
+def _codex_session_name(session: str, environment: Mapping[str, str]) -> str:
+    index_path = os.path.join(_codex_home(environment), "session_index.jsonl")
+    for line in reversed(_tail_lines(index_path, MAX_SESSION_INDEX_TAIL_BYTES)):
+        record = _json_object(line)
+        if record is None or record.get("id") != session:
             continue
         return _text(record.get("thread_name"), 160)
+    return ""
+
+
+def _claude_session_name(session: str, hook_input: Mapping[str, Any]) -> str:
+    """Read the newest generated title out of this session's own transcript.
+
+    Claude Code appends an `ai-title` record whenever it regenerates the title,
+    so the newest matching record from the tail is the current name. The
+    transcript path is used to open the file and is never copied into the event.
+    """
+    transcript_path = hook_input.get("transcript_path")
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return ""
+    for line in reversed(_tail_lines(transcript_path, MAX_TRANSCRIPT_TAIL_BYTES)):
+        record = _json_object(line)
+        if record is None or record.get("type") != "ai-title":
+            continue
+        if record.get("sessionId") != session:
+            continue
+        return _text(record.get("aiTitle"), 160)
     return ""
 
 
@@ -111,8 +145,10 @@ def build_event(
         event["model"] = model
     if agent == "codex":
         name = _codex_session_name(session, environment)
-        if name:
-            event["name"] = name
+    else:
+        name = _claude_session_name(session, hook_input)
+    if name:
+        event["name"] = name
     return event
 
 

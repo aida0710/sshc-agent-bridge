@@ -137,6 +137,132 @@ class ReporterTest(unittest.TestCase):
 
         self.assertNotIn("name", malformed)
 
+    def test_claude_uses_the_newest_ai_title_from_its_own_transcript(self):
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = pathlib.Path(directory) / "abc-123.jsonl"
+            transcript.write_text(
+                "\n".join(
+                    [
+                        json.dumps({"type": "ai-title", "aiTitle": "Old name", "sessionId": "abc-123"}),
+                        json.dumps({"type": "user", "message": {"content": "secret prompt"}}),
+                        json.dumps({"type": "ai-title", "aiTitle": "sshc pluginを直す", "sessionId": "abc-123"}),
+                        json.dumps({"type": "assistant", "message": {"content": "secret answer"}}),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            event = report_hook.build_event(
+                {
+                    "session_id": "abc-123",
+                    "cwd": "/workspace",
+                    "hook_event_name": "Stop",
+                    "transcript_path": str(transcript),
+                },
+                {"CLAUDE_PLUGIN_ROOT": "/plugin"},
+                13,
+            )
+
+        self.assertEqual(
+            event,
+            {
+                "v": 1,
+                "agent": "claude",
+                "event": "ready",
+                "session": "abc-123",
+                "cwd": "/workspace",
+                "name": "sshc pluginを直す",
+                "seq": 13,
+            },
+        )
+        self.assertEqual(decode_frame(report_hook.encode_osc(event))["name"], "sshc pluginを直す")
+
+    def test_claude_ignores_a_title_written_for_another_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = pathlib.Path(directory) / "resumed.jsonl"
+            transcript.write_text(
+                json.dumps({"type": "ai-title", "aiTitle": "Previous session", "sessionId": "old-id"})
+                + "\n",
+                encoding="utf-8",
+            )
+
+            event = report_hook.build_event(
+                {
+                    "session_id": "abc-123",
+                    "hook_event_name": "Stop",
+                    "transcript_path": str(transcript),
+                },
+                {"CLAUDE_PLUGIN_ROOT": "/plugin"},
+                14,
+            )
+
+        self.assertNotIn("name", event)
+
+    def test_claude_session_name_search_is_bounded_to_the_transcript_tail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            transcript = pathlib.Path(directory) / "bounded.jsonl"
+            transcript.write_text(
+                json.dumps({"type": "ai-title", "aiTitle": "Too old", "sessionId": "abc-123"})
+                + "\n"
+                + json.dumps({"type": "assistant", "message": {"content": "x" * 200}})
+                + "\n",
+                encoding="utf-8",
+            )
+            hook_input = {
+                "session_id": "abc-123",
+                "hook_event_name": "Stop",
+                "transcript_path": str(transcript),
+            }
+            with mock.patch.object(report_hook, "MAX_TRANSCRIPT_TAIL_BYTES", 128):
+                event = report_hook.build_event(hook_input, {"SSHC_AGENT_KIND": "claude"}, 15)
+                self.assertNotIn("name", event)
+
+                with transcript.open("a", encoding="utf-8") as output:
+                    output.write(
+                        json.dumps({"type": "ai-title", "aiTitle": "Current", "sessionId": "abc-123"})
+                        + "\n"
+                    )
+                event = report_hook.build_event(hook_input, {"SSHC_AGENT_KIND": "claude"}, 16)
+
+        self.assertEqual(event["name"], "Current")
+
+    def test_claude_omits_name_when_the_transcript_is_absent_or_malformed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = report_hook.build_event(
+                {
+                    "session_id": "abc-123",
+                    "hook_event_name": "SessionStart",
+                    "transcript_path": str(pathlib.Path(directory) / "not-created.jsonl"),
+                },
+                {"SSHC_AGENT_KIND": "claude"},
+                17,
+            )
+            self.assertNotIn("name", missing)
+
+            transcript = pathlib.Path(directory) / "malformed.jsonl"
+            transcript.write_bytes(
+                b"not-json\n"
+                b'{"type":"ai-title","aiTitle":7,"sessionId":"abc-123"}\n'
+            )
+            malformed = report_hook.build_event(
+                {
+                    "session_id": "abc-123",
+                    "hook_event_name": "Stop",
+                    "transcript_path": str(transcript),
+                },
+                {"SSHC_AGENT_KIND": "claude"},
+                18,
+            )
+            self.assertNotIn("name", malformed)
+
+        without_path = report_hook.build_event(
+            {"session_id": "abc-123", "hook_event_name": "Stop", "transcript_path": 7},
+            {"SSHC_AGENT_KIND": "claude"},
+            19,
+        )
+        self.assertNotIn("name", without_path)
+
     def test_unknown_hook_is_ignored(self):
         self.assertIsNone(
             report_hook.build_event(
