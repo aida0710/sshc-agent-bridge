@@ -1,24 +1,25 @@
 # sshc Agent Bridge
 
-Claude Code、Codex、OpenCodeのsession状態を、そのagentを実行している
-[sshc](https://github.com/aida0710/sshc) Terminal paneへ報告する小さなplugin集です。
+Claude Code、Codex、OpenCodeのセッション状態を、各エージェントを実行している
+[sshc](https://github.com/aida0710/sshc)のTerminalペインへ通知するための小さなプラグイン集です。
 
 > [!IMPORTANT]
-> 現在はexperimentalです。Agent Bridge protocolを含むsshc v0.19.0以上が必要です。
+> 現在は実験的な機能です。Agent Bridgeプロトコルを含むsshc v0.19.0以上が必要です。
 
-## 何が変わるか
+## できること
 
-sshcのTerminalでagentを実行すると、pane headerに次の状態を表示できるようになります。
+sshcのTerminalでエージェントを実行すると、ペインヘッダーに次の状態を表示できるようになります。
 
-- `working`: agentが応答を生成中
-- `attention`: permissionや入力を待機中
+- `working`: エージェントが応答を生成中
+- `attention`: 権限確認やユーザー入力を待機中
 - `ready`: 応答が完了し、次の入力を待機中
-- `ended`: native sessionを終了。sshc側では再開候補として保持
+- `ended`: ネイティブセッションが終了。sshc側では再開候補として保持
 
-OpenCodeでは公式eventのsession titleを報告します。Codexでは公式hookの`session_id`と
+OpenCodeでは、公式イベントからセッションタイトルを取得して報告します。Codexでは、公式フックの`session_id`と
 ローカルの`~/.codex/session_index.jsonl`を照合し、最新の`thread_name`があれば報告します。
-SessionStart時点で未生成の場合は省略され、次のStopやUserPromptSubmitで反映されます。
-Claude Codeは安定したsession title fieldがないため、sshcのpane titleまたは接続aliasを使います。
+`SessionStart`の時点でまだ生成されていない場合は省略され、次回の`Stop`または`UserPromptSubmit`で反映されます。
+
+Claude Codeには安定して利用できるセッションタイトルのフィールドがないため、sshcのペインタイトルまたは接続エイリアスを使用します。
 
 ## インストール
 
@@ -29,24 +30,24 @@ codex plugin marketplace add aida0710/sshc-agent-bridge
 codex plugin add sshc-agent-bridge@sshc
 ```
 
-新しいCodex sessionを開始し、`/hooks`でplugin hookの内容を確認して信頼してください。
-hookが更新されるとhashが変わるため、Codexは再確認するまで新しいhookを実行しません。
+新しいCodexセッションを開始し、`/hooks`でプラグインフックの内容を確認して信頼してください。
+フックが更新されるとハッシュが変わるため、Codexは再確認されるまで新しいフックを実行しません。
 
 ### Claude Code
 
-Claude Code内で実行します。
+Claude Code内で次のコマンドを実行します。
 
 ```text
 /plugin marketplace add aida0710/sshc-agent-bridge
 /plugin install sshc-agent-bridge@sshc
 ```
 
-pluginを有効化した後、新しいsessionを開始してください。
+プラグインを有効化した後、新しいセッションを開始してください。
 
 ### OpenCode
 
-OpenCode adapterはnpm公開前です。現時点ではrepositoryをcloneし、`opencode.json`の
-`plugin`へ絶対pathを追加します。
+OpenCode向けアダプターは、まだnpmに公開していません。現時点ではリポジトリをcloneし、`opencode.json`の
+`plugin`に絶対パスを追加します。
 
 ```json
 {
@@ -55,29 +56,32 @@ OpenCode adapterはnpm公開前です。現時点ではrepositoryをcloneし、`
 }
 ```
 
-npm package `sshc-agent-bridge-opencode`の公開後は、このlocal pathをpackage名へ
-置き換えられる設計です。
+npmパッケージ`sshc-agent-bridge-opencode`の公開後は、このローカルパスをパッケージ名に
+置き換えて利用できる予定です。
 
-## Privacy / Security
+## プライバシー / セキュリティ
 
-このbridgeは次の情報だけをsshcへ渡します。
+このBridgeがsshcへ渡す情報は、次のものだけです。
 
-- agent種別
-- native session ID
-- lifecycle状態
-- working directory
-- model ID（公式hookが提供する場合）
-- session title（OpenCodeの公式event、またはCodexのローカルsession indexが提供する場合）
+- エージェント種別
+- ネイティブセッションID
+- ライフサイクル状態
+- 作業ディレクトリ
+- モデルID（公式フックから取得できる場合）
+- セッションタイトル（OpenCodeの公式イベント、またはCodexのローカルセッションインデックスから取得できる場合）
 
-prompt、assistant response、tool input/output、transcript本文は送信しません。Codex連携は
-session名の解決に`session_index.jsonl`の末尾最大1 MiBだけを読み、該当IDの
-`thread_name`以外をOSCへ含めません。network request、設定fileの書き換え、agentの
-許可判断の変更も行いません。出力先は現在の`/dev/tty`だけです。sshc以外のterminalでは
-未知のOSCが無視され、TTYがない環境では何もせず成功終了します。
+プロンプト、アシスタントの応答、ツールの入出力、トランスクリプト本文は送信しません。
+
+Codex連携では、セッション名の解決に`session_index.jsonl`の末尾最大1 MiBだけを読み取り、該当IDの
+`thread_name`以外の情報をOSCへ含めません。
+
+ネットワーク通信、設定ファイルの書き換え、エージェントの許可判断の変更も行いません。
+OSCの出力先は現在の`/dev/tty`だけです。sshc以外のターミナルでは未知のOSCは無視され、
+TTYがない環境では何もせず正常終了します。
 
 詳細は[SECURITY.md](SECURITY.md)を参照してください。
 
-## Repository layout
+## リポジトリ構成
 
 ```text
 .agents/plugins/marketplace.json           Codex marketplace
@@ -92,7 +96,7 @@ opencode/                                   OpenCode package
 tests/                                      contract tests
 ```
 
-## Development
+## 開発
 
 Python 3.10以上とNode.js 18以上を使用します。
 
@@ -101,20 +105,21 @@ python3 -m unittest discover -s tests -v
 cd opencode && npm test
 ```
 
-Codex manifestはOpenAIの`plugin-creator` validatorでも検証しています。
+Codexのmanifestは、OpenAIの`plugin-creator` validatorでも検証しています。
 
-## Protocol
+## プロトコル
 
-Bridgeはcompact JSONをbase64url encodingし、次のprivate OSCとして`/dev/tty`へ
+BridgeはコンパクトなJSONをbase64urlでエンコードし、次のプライベートOSCとして`/dev/tty`へ
 書き込みます。
 
 ```text
 ESC ] 6973 ; <base64url JSON> ST
 ```
 
-payloadは4 KiB以下、versionは`1`です。このeventはsshc内で表示・通知・利用者が
-明示したnative session再開だけに使い、接続identityや任意command実行のauthorityには
-使いません。
+ペイロードは4 KiB以下で、バージョンは`1`です。
+
+このイベントは、sshc内での表示・通知と、ユーザーが明示的に指示したネイティブセッションの再開にのみ使用します。
+接続identityの根拠や、任意コマンドを実行するためのauthorityとしては使用しません。
 
 ## License
 
