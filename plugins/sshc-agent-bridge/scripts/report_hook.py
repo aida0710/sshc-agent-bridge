@@ -14,6 +14,10 @@ MAX_INPUT_BYTES = 1 << 20
 MAX_ENCODED_PAYLOAD_BYTES = 4096
 MAX_SESSION_INDEX_TAIL_BYTES = 1 << 20
 MAX_TRANSCRIPT_TAIL_BYTES = 1 << 20
+# An agent may put its hooks a few processes away from the pane. Walking a
+# bounded ancestry keeps the search finite on an unexpected process tree.
+MAX_TERMINAL_ANCESTRY = 8
+LINUX_PTS_MAJOR = 136
 OSC_PREFIX = b"\x1b]6973;"
 OSC_SUFFIX = b"\x1b\\"
 
@@ -160,26 +164,106 @@ def encode_osc(event: Mapping[str, Any]) -> bytes | None:
     return OSC_PREFIX + encoded + OSC_SUFFIX
 
 
-def write_to_tty(frame: bytes) -> bool:
+def _pts_path(device: int) -> str:
+    """Turn a Linux tty device number into its /dev/pts path."""
+    if device <= 0:
+        return ""
+    major = (device >> 8) & 0xFFF
+    if major != LINUX_PTS_MAJOR:
+        return ""
+    minor = (device & 0xFF) | ((device >> 12) & 0xFFF00)
+    return f"/dev/pts/{minor}"
+
+
+def _ancestor_terminals() -> list[str]:
+    """Controlling terminals of this process's ancestors, nearest first.
+
+    An agent that starts its hooks in a new session leaves them without a
+    controlling terminal, so `/dev/tty` cannot be opened. The agent process
+    itself still owns the pane's terminal. Only Linux is covered here; other
+    platforms fall back to the login session's SSH_TTY.
+    """
+    found: list[str] = []
+    pid = os.getppid()
+    for _ in range(MAX_TERMINAL_ANCESTRY):
+        if pid <= 1:
+            break
+        try:
+            with open(f"/proc/{pid}/stat", "rb") as stat:
+                data = stat.read()
+        except OSError:
+            break
+        # The second field is the executable name in parentheses and may itself
+        # contain spaces or parentheses, so parse the fixed fields after it.
+        close = data.rfind(b")")
+        fields = data[close + 2 :].split() if close >= 0 else []
+        if len(fields) < 5:
+            break
+        try:
+            parent, device = int(fields[1]), int(fields[4])
+        except ValueError:
+            break
+        path = _pts_path(device)
+        if path and path not in found:
+            found.append(path)
+        pid = parent
+    return found
+
+
+def _terminal_candidates(environment: Mapping[str, str]) -> list[str]:
+    """Ordered write targets for the pane that is displaying this agent."""
+    candidates = ["/dev/tty"]
+    for path in _ancestor_terminals():
+        if path not in candidates:
+            candidates.append(path)
+    ssh_tty = environment.get("SSH_TTY", "")
+    if ssh_tty and ssh_tty not in candidates:
+        candidates.append(ssh_tty)
+    return candidates
+
+
+def _open_terminal(path: str) -> int | None:
+    """Open path only when it is a real terminal device under /dev."""
+    if not path.startswith("/dev/") or os.path.normpath(path) != path:
+        return None
     flags = os.O_WRONLY | getattr(os, "O_NOCTTY", 0)
     try:
-        descriptor = os.open("/dev/tty", flags)
+        descriptor = os.open(path, flags)
     except OSError:
-        return False
+        return None
     try:
         if not os.isatty(descriptor):
-            return False
-        view = memoryview(frame)
-        while view:
-            written = os.write(descriptor, view)
-            if written <= 0:
-                return False
-            view = view[written:]
-        return True
+            os.close(descriptor)
+            return None
     except OSError:
-        return False
-    finally:
         os.close(descriptor)
+        return None
+    return descriptor
+
+
+def write_to_tty(frame: bytes, environment: Mapping[str, str] | None = None) -> bool:
+    resolved = os.environ if environment is None else environment
+    for path in _terminal_candidates(resolved):
+        descriptor = _open_terminal(path)
+        if descriptor is None:
+            continue
+        started = False
+        try:
+            view = memoryview(frame)
+            while view:
+                written = os.write(descriptor, view)
+                if written <= 0:
+                    return False
+                started = True
+                view = view[written:]
+            return True
+        except OSError:
+            # A partly written frame must not be repeated on another terminal.
+            if started:
+                return False
+        finally:
+            os.close(descriptor)
+    return False
 
 
 def read_hook_input(stream: Any) -> Mapping[str, Any] | None:

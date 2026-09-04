@@ -1,6 +1,7 @@
 import base64
 import importlib.util
 import json
+import os
 import pathlib
 import tempfile
 import unittest
@@ -271,6 +272,60 @@ class ReporterTest(unittest.TestCase):
                 1,
             )
         )
+
+    def test_pts_path_decodes_the_linux_device_number(self):
+        self.assertEqual(report_hook._pts_path(0x8800), "/dev/pts/0")
+        self.assertEqual(report_hook._pts_path(0x8801), "/dev/pts/1")
+        self.assertEqual(report_hook._pts_path(0x108800), "/dev/pts/256")
+        self.assertEqual(report_hook._pts_path(0), "")
+        self.assertEqual(report_hook._pts_path(0x400), "")
+
+    def test_terminal_candidates_try_dev_tty_then_ancestry_then_ssh_tty(self):
+        with mock.patch.object(report_hook, "_ancestor_terminals", lambda: ["/dev/pts/7"]):
+            self.assertEqual(
+                report_hook._terminal_candidates({"SSH_TTY": "/dev/pts/9"}),
+                ["/dev/tty", "/dev/pts/7", "/dev/pts/9"],
+            )
+            self.assertEqual(
+                report_hook._terminal_candidates({"SSH_TTY": "/dev/pts/7"}),
+                ["/dev/tty", "/dev/pts/7"],
+            )
+            self.assertEqual(report_hook._terminal_candidates({}), ["/dev/tty", "/dev/pts/7"])
+
+    def test_only_a_terminal_device_under_dev_is_opened(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ordinary = pathlib.Path(directory) / "not-a-terminal"
+            ordinary.write_text("", encoding="utf-8")
+            self.assertIsNone(report_hook._open_terminal(str(ordinary)))
+        self.assertIsNone(report_hook._open_terminal("/dev/../etc/passwd"))
+        self.assertIsNone(report_hook._open_terminal("/dev/null"))
+
+        primary, secondary = os.openpty()
+        try:
+            descriptor = report_hook._open_terminal(os.ttyname(secondary))
+            self.assertIsNotNone(descriptor)
+            os.close(descriptor)
+        finally:
+            os.close(primary)
+            os.close(secondary)
+
+    def test_the_frame_reaches_the_pane_terminal_past_an_unusable_candidate(self):
+        primary, secondary = os.openpty()
+        try:
+            frame = report_hook.encode_osc({"v": 1, "agent": "claude", "event": "ready", "seq": 1})
+            # An agent that starts hooks in a new session leaves /dev/tty
+            # unopenable. The reporter must skip it and reach the pane instead.
+            candidates = ["/dev/null", os.ttyname(secondary)]
+            with mock.patch.object(report_hook, "_terminal_candidates", lambda environment: candidates):
+                self.assertTrue(report_hook.write_to_tty(frame, {}))
+            self.assertEqual(os.read(primary, len(frame) + 16), frame)
+        finally:
+            os.close(primary)
+            os.close(secondary)
+
+    def test_write_reports_failure_when_no_candidate_is_a_terminal(self):
+        with mock.patch.object(report_hook, "_terminal_candidates", lambda environment: ["/dev/null"]):
+            self.assertFalse(report_hook.write_to_tty(b"frame", {}))
 
     def test_osc_round_trip_uses_base64url(self):
         event = {

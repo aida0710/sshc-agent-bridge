@@ -27,7 +27,11 @@ BridgeがOSC payloadへcopyするfieldはallowlistで固定しています。
 - permission理由
 - credentialsとenvironment全体
 
-Reporterはnetwork APIを呼ばず、永続fileも作りません。唯一のwrite先は`/dev/tty`です。
+Reporterはnetwork APIを呼ばず、永続fileも作りません。write先は端末deviceだけです。
+まず`/dev/tty`を試し、開けない場合は祖先processの制御端末、続いて`SSH_TTY`を試します。
+候補は`/dev/`配下の正規化済みpathに限り、`os.isatty`が真のfile descriptorへだけ書き込みます。
+Claude Codeはhookを新しいsessionで起動するため`/dev/tty`が`ENXIO`で開けず、この順序が必要です。
+祖先の制御端末はLinuxの`/proc/<pid>/stat`から最大8世代だけ辿ります。
 Codexでは`CODEX_HOME/session_index.jsonl`（既定は`~/.codex/session_index.jsonl`）の末尾
 最大1 MiBを読み、hookの`session_id`と一致する最新行の`thread_name`だけを利用します。
 Claude Codeではhookが渡す`transcript_path`のfileの末尾最大1 MiBを読み、hookの`session_id`と
@@ -39,7 +43,8 @@ agentの動作を止めずに無視します。
 
 ## Supported environment
 
-Lifecycle reporterは`/dev/tty`を持つLinuxまたはmacOS sessionを対象とします。
+Lifecycle reporterはLinuxまたはmacOSのsessionを対象とします。macOSでは祖先process
+からの解決を行わないため、`/dev/tty`も`SSH_TTY`も使えない構成では報告を省略します。
 Windows native sessionは現時点では未対応です。WSL内のPTYはUnix環境として動作します。
 
 ## Reporting a vulnerability

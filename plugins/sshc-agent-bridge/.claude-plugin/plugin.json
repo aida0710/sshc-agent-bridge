@@ -1,6 +1,6 @@
 {
   "name": "sshc-agent-bridge",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Report coding-agent lifecycle state to an sshc terminal pane.",
   "author": {
     "name": "Masaki Aida",

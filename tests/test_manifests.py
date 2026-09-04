@@ -31,7 +31,7 @@ class ManifestTest(unittest.TestCase):
         plugin = ROOT / "plugins/sshc-agent-bridge"
         codex = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
         claude = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
-        self.assertEqual(codex["version"], "0.1.2")
+        self.assertEqual(codex["version"], "0.1.3")
         self.assertEqual(claude["version"], codex["version"])
 
 
