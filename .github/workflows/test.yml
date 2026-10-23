@@ -9,7 +9,8 @@ permissions:
 
 jobs:
   test:
-    runs-on: ${{ (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) && 'r540-linux' || 'ubuntu-latest' }}
+    # r540ではPythonの準備が支配的で77秒かかる（GitHubでは6秒）ため、移行しない。
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
